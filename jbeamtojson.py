@@ -29,8 +29,6 @@ jbeamfilepath = fileinfo[0]
 jbeamfilename = fileinfo[1]
 dir_path = jbeamfilepath.strip(jbeamfilename)
 
-jbeamfilename = jbeamfilename.strip('.jbeam')
-
 def JBeamToJSON(j):
     
     j = re.sub(r'\/\*[\s\S]*?\*\/|([^:]|^)\/\/.*$',
@@ -112,11 +110,11 @@ def jbeamtojsonfinal(jbeamfilename2,fp):
                cinfo.append(line_num)
                clist.append(cinfo)
                cinfo = []
-   with open(jbeamfilename2.strip('.jbeam')+'.json', 'w') as f:
+   with open(jbeamfilename2+'.json', 'w') as f:
        f.write(JBeamToJSON(formatedfile2))
-   with open(jbeamfilename2.strip('.jbeam')+'.json', 'w') as f:
+   with open(jbeamfilename2+'.json', 'w') as f:
        f.write(remove_trailing_commas(formatedfile2,jbeamfilename2))
-   with open(jbeamfilename2.strip('.jbeam')+'.json', 'r+') as f:
+   with open(jbeamfilename2+'.json', 'r+') as f:
        f.write('\n')
        last_line = f.readlines()[-1]
        if last_line == ',':
@@ -148,7 +146,8 @@ def jbeamtojsonfinal(jbeamfilename2,fp):
 for file_name in os.listdir(dir_path):
     if file_name.endswith(".jbeam"):
         file_path = os.path.join(dir_path, file_name)
-        jbeamtojsonfinal(file_name,file_path)
+        name_without_extension = os.path.splitext(file_name)[0]
+        jbeamtojsonfinal(name_without_extension,file_path)
 local_path = os.path.dirname(os.path.abspath(__file__))
 goodfiles = 0
 failedfiles = 0
@@ -169,4 +168,3 @@ for file_name in os.listdir(local_path):
 
 print("Total Valid JSONS: "+str(goodfiles))
 print("Total Failed JSONS: "+str(failedfiles))
-        
