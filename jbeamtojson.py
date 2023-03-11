@@ -29,10 +29,7 @@ jbeamfilepath = fileinfo[0]
 jbeamfilename = fileinfo[1]
 dir_path = jbeamfilepath.strip(jbeamfilename)
 
-def JBeamToJSON(j):
-    
-    j = re.sub(r'\/\*[\s\S]*?\*\/|([^:]|^)\/\/.*$',
-               lambda m: m.group(1) or '', j, flags=re.MULTILINE)
+def JBeamToJSON(j):    
     j = re.sub(r'(\]|})\s*?(\{|\[)', r'\1,\2', j)
     j = re.sub(r'(}|])\s*"', r'\1,"', j)
     j = re.sub(r'"{', r'", {', j)
@@ -95,10 +92,42 @@ def remove_trailing_commas(json_str,filename):
 
         result_lines.append(line)
     return '\n'.join(result_lines)
+def fixdoublecomments(something, fnamenoextension):
+    filename = fnamenoextension + ".json"
+    file_path = os.path.join(something, filename)
 
-def jbeamtojsonfinal(jbeamfilename2,fp):
-   with open(fp, "r") as file:
-    data2 = file.read()
+    def remove_duplicate_key(file_path):
+        try:
+            with open(file_path, 'r') as f:
+                json_data = json.load(f)
+                if isinstance(json_data, dict):
+                    json_data = [json_data]  # wrap single object in a list
+                keys = set()
+                for obj in json_data:
+                    for key in obj.keys():
+                        if key in keys:
+                            print(f'Duplicate key found: {key}')
+                            obj.pop(key)
+                        else:
+                            keys.add(key)
+                return json_data
+        except json.JSONDecodeError as e:
+            print(f"Invalid JSON: {e}")
+            return None
+
+
+    print(f"Attempting to read file: {file_path}")
+    new_json_data = remove_duplicate_key(file_path)
+    if new_json_data:
+        with open(file_path, 'w') as f:
+            json.dump(new_json_data, f, indent=2)
+    else:
+        print("No data to write.")
+
+def addcommentsback(jbeamfilename2,fp):
+  nocomments = True
+  with open(fp, "r") as file:
+   data2 = file.read()
    formatedfile2 = JBeamToJSON(data2)
    pattern = r'\/\*[\s\S]*?\*\/|([^:]|^)\/\/.*$'
    cinfo = []
@@ -110,53 +139,72 @@ def jbeamtojsonfinal(jbeamfilename2,fp):
                cinfo.append(line_num)
                clist.append(cinfo)
                cinfo = []
+               nocomments = False
+   if nocomments == False:
+       print("comments")
+       with open(jbeamfilename2+'.json', 'r+') as f:
+           f.write('\n')
+           last_line = f.readlines()[-1]
+           print(last_line)
+           if last_line == ',':
+              f.write('"comments":{')
+           if last_line == ']':
+              return
+           else:
+              f.write(',"comments":{')
+           for i,item in enumerate(clist):
+              if i < len(clist)-1 :
+                 if '"' not in str(item[0]):
+                    f.write("\n"+"    "+'"'+'commentline'+str(item[1])+'":'+str(item[0])+",")
+                 else:
+                    item[0]= item[0].replace('"',"'")
+                    if item[0].startswith("'") and item[0].endswith("'"):
+                        item[0] = item[0][1:-1]       
+                        item[0]= item[0].replace('\t',"")        
+                    f.write("\n"+"    "+'"'+'commentline'+str(item[1])+'":'+'"'+str(item[0])+'"'+",")
+              elif i == len(clist)-1:
+                 if '"' not in str(item[0]):
+                    f.write("\n"+"    "+'"'+'commentline'+str(item[1])+'":'+str(item[0]))
+                 else:
+                    item[0]= item[0].replace('"',"'")
+                    item[0]= item[0].replace('\t',"")
+                    if item[0].startswith("'") and item[0].endswith("'"):
+                        item[0] = item[0][1:-1]               
+                    f.write("\n"+"    "+'"'+'commentline'+str(item[1])+'":'+'"'+str(item[0])+'"')
+           f.write('\n'+'}')
+           f.write('\n'+'}')
+   if nocomments == True:
+       print("no comments")
+       with open(jbeamfilename2+'.json', 'r+') as f:
+           f.write('\n')
+           last_line = f.readlines()[-1]
+           if last_line == ',':
+              f.write('}')
+
+def jbeamtojsonfinal(jbeamfilename2,fp,apath):
+   nocomments = True
+   with open(fp, "r") as file:
+    data2 = file.read()
+   formatedfile2 = JBeamToJSON(data2)
    with open(jbeamfilename2+'.json', 'w') as f:
        f.write(JBeamToJSON(formatedfile2))
    with open(jbeamfilename2+'.json', 'w') as f:
        f.write(remove_trailing_commas(formatedfile2,jbeamfilename2))
-   with open(jbeamfilename2+'.json', 'r+') as f:
-       f.write('\n')
-       last_line = f.readlines()[-1]
-       if last_line == ',':
-          f.write('"comments":{')
-       else:
-          f.write(',"comments":{')
-       for i,item in enumerate(clist):
-          if i < len(clist)-1 :
-             if '"' not in str(item[0]):
-                f.write("\n"+"    "+'"'+'commentline'+str(item[1])+'":'+str(item[0])+",")
-             else:
-                item[0]= item[0].replace('"',"'")
-                if item[0].startswith("'") and item[0].endswith("'"):
-                    item[0] = item[0][1:-1]       
-                    item[0]= item[0].replace('\t',"")        
-                f.write("\n"+"    "+'"'+'commentline'+str(item[1])+'":'+'"'+str(item[0])+'"'+",")
-          elif i == len(clist)-1:
-             if '"' not in str(item[0]):
-                f.write("\n"+"    "+'"'+'commentline'+str(item[1])+'":'+str(item[0]))
-             else:
-                item[0]= item[0].replace('"',"'")
-                item[0]= item[0].replace('\t',"")
-                if item[0].startswith("'") and item[0].endswith("'"):
-                    item[0] = item[0][1:-1]               
-                f.write("\n"+"    "+'"'+'commentline'+str(item[1])+'":'+'"'+str(item[0])+'"')
-       f.write('\n'+'}')
-       f.write('\n'+'}')
-    
+   addcommentsback(jbeamfilename2,fp)
+   fixdoublecomments(dir_path,jbeamfilename2)
+
 for file_name in os.listdir(dir_path):
     if file_name.endswith(".jbeam"):
         file_path = os.path.join(dir_path, file_name)
         name_without_extension = os.path.splitext(file_name)[0]
-        jbeamtojsonfinal(name_without_extension,file_path)
+        jbeamtojsonfinal(name_without_extension,file_path,dir_path)
+        
 local_path = os.path.dirname(os.path.abspath(__file__))
 goodfiles = 0
 failedfiles = 0
 for file_name in os.listdir(local_path):
-    # Check if the file is a jbeam file
     if file_name.endswith(".json"):
-        # Construct the full path to the file
         file_path = os.path.join(local_path, file_name)
-        # Call the function to process the jbeam file
         try:
           with open(file_path, 'r') as file:
             json_data = file.read()
